@@ -2,71 +2,78 @@ name: Build and Release Android APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # Allows manual trigger
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.13.0'
           channel: 'stable'
           cache: true
 
-      - name: Get Flutter dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build Release APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 90
+          if-no-files-found: error
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
+    permissions:
+      contents: write
+    
     steps:
-      - name: Download APK
+      - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
           name: release-apk
+          path: artifact
 
-      - name: Get current date
+      - name: Generate Release Date
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.date.outputs.date }}
           name: Release ${{ steps.date.outputs.date }}
-          files: app-release.apk
+          files: artifact/app-release.apk
           draft: false
           prerelease: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
