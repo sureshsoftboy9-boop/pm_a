@@ -7,12 +7,13 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout Repository
@@ -38,48 +39,42 @@ jobs:
       - name: Build Release APK
         run: flutter build apk --release
 
-      - name: Verify APK Exists
-        run: |
-          if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            echo "APK not found!"
-            exit 1
-          fi
-
-      - name: Upload Build Artifact
+      - name: Upload APK Artifact
+        id: upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 90
           if-no-files-found: error
+          compression-level: 9
 
   release:
-    name: Create Release
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
-
+    
     steps:
-      - name: Download Build Artifact
+      - name: Get Release APK
         uses: actions/download-artifact@v4
         with:
           name: release-apk
-          path: ./downloaded-artifact
+          path: ./release
 
-      - name: Generate Release Date
+      - name: Get Current Date
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.date.outputs.date }}
           name: Release ${{ steps.date.outputs.date }}
-          files: ./downloaded-artifact/app-release.apk
+          files: ./release/app-release.apk
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
