@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.photomanager.photo_manager_mobile"
-    compileSdk = 33
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
