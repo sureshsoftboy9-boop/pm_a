@@ -13,8 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -39,6 +38,13 @@ jobs:
       - name: Build Release APK
         run: flutter build apk --release
 
+      - name: Verify APK Exists
+        run: |
+          if [ ! -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            echo "APK not found!"
+            exit 1
+          fi
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -54,13 +60,13 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
-    
+
     steps:
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
           name: release-apk
-          path: artifact
+          path: ./downloaded-artifact
 
       - name: Generate Release Date
         id: date
@@ -71,7 +77,7 @@ jobs:
         with:
           tag_name: v${{ steps.date.outputs.date }}
           name: Release ${{ steps.date.outputs.date }}
-          files: artifact/app-release.apk
+          files: ./downloaded-artifact/app-release.apk
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
